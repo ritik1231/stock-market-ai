@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "stock-market-ai"
+version = "0.1.0"
+description = "Agentic Stock Market AI — multi-agent trading signal pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic-settings>=2.3.0",
+    "sqlalchemy>=2.0.30",
+    "asyncpg>=0.29.0",
+    "redis[asyncio]>=5.0.4",
+    "celery[redis]>=5.4.0",
+    "alembic>=1.13.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = ["integration: marks tests as integration tests (deselect with '-m not integration')"]
