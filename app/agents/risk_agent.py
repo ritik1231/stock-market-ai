@@ -1,19 +1,20 @@
 import asyncio
-import logging
 import math
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
+import structlog
 from pydantic import BaseModel
 
 from app.celery_app import celery_app
 from app.db import AsyncSessionLocal
+from app.logging_config import log_agent_task
 from app.models.agent import AgentRunLog
 from app.tools import alpaca_client
 from app.tools.cache import get_cache, set_cache
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _HWM_KEY = "portfolio:hwm"
 _HWM_TTL = 365 * 24 * 3600  # ~1 year — effectively permanent
@@ -239,7 +240,11 @@ async def _execute(input_data: RiskInput, payload: dict) -> dict:
     return output_dict
 
 
-@celery_app.task(bind=True, queue="agent.risk", name="agents.risk")
+@celery_app.task(bind=True, queue="agent.risk", name="agents.risk", max_retries=3, default_retry_delay=10)
+@log_agent_task
 def run_risk_agent(self, payload: dict) -> dict:
-    input_data = RiskInput(**payload)
-    return asyncio.run(_execute(input_data, payload))
+    try:
+        input_data = RiskInput(**payload)
+        return asyncio.run(_execute(input_data, payload))
+    except Exception as exc:
+        raise self.retry(exc=exc, countdown=10)

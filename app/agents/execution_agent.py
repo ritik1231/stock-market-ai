@@ -1,20 +1,22 @@
 import asyncio
-import logging
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
+import structlog
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.celery_app import celery_app
 from app.db import AsyncSessionLocal
+from app.logging_config import log_agent_task
 from app.models.agent import AgentRunLog
 from app.models.trading import Trade
 from app.tools import alpaca_client
 from app.tools.alpaca_client import AlpacaAPIError
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _POLL_ATTEMPTS = 5
 _POLL_INTERVAL_S = 2
@@ -114,6 +116,23 @@ async def _upsert_trade(
         await db.commit()
 
 
+async def _get_existing_trade(query_id: str) -> Optional[dict]:
+    """Return order details if a trade for this query_id was already placed."""
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Trade).where(Trade.query_id == UUID(query_id))
+        )
+        trade = result.scalar_one_or_none()
+        if trade and trade.alpaca_order_id:
+            return {
+                "order_id": trade.alpaca_order_id,
+                "status": trade.status or "unknown",
+                "filled_avg_price": float(trade.filled_price) if trade.filled_price else None,
+                "filled_at": str(trade.filled_at) if trade.filled_at else None,
+            }
+    return None
+
+
 async def _run_execution(input_data: ExecutionInput) -> ExecutionOutput:
     # Step 1: Hard safety gate
     if not input_data.paper_mode:
@@ -123,6 +142,19 @@ async def _run_execution(input_data: ExecutionInput) -> ExecutionOutput:
 
     ticker = input_data.ticker.upper()
     action = input_data.action.upper()
+
+    # Idempotency: return existing order if one was already placed for this query_id
+    existing = await _get_existing_trade(input_data.query_id)
+    if existing:
+        logger.info("idempotency_hit", query_id=input_data.query_id, order_id=existing["order_id"])
+        return ExecutionOutput(
+            query_id=input_data.query_id,
+            ticker=ticker,
+            order_id=existing["order_id"],
+            status=existing["status"],
+            filled_price=existing["filled_avg_price"],
+            timestamp=existing["filled_at"],
+        )
 
     # Step 2: Place bracket limit order
     # Use current market price (last close) for slippage calculation
@@ -238,7 +270,11 @@ async def _execute(input_data: ExecutionInput, payload: dict) -> dict:
     return output_dict
 
 
-@celery_app.task(bind=True, queue="agent.execution", name="agents.execution")
+@celery_app.task(bind=True, queue="agent.execution", name="agents.execution", max_retries=3, default_retry_delay=10)
+@log_agent_task
 def run_execution_agent(self, payload: dict) -> dict:
-    input_data = ExecutionInput(**payload)
-    return asyncio.run(_execute(input_data, payload))
+    try:
+        input_data = ExecutionInput(**payload)
+        return asyncio.run(_execute(input_data, payload))
+    except Exception as exc:
+        raise self.retry(exc=exc, countdown=10)

@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 from kombu import Exchange, Queue
 
 from app.config import get_settings
@@ -36,3 +37,22 @@ celery_app.conf.task_queues = (
 celery_app.conf.task_default_queue = "orchestrator.tasks"
 celery_app.conf.task_default_exchange = "orchestrator.tasks"
 celery_app.conf.task_default_routing_key = "orchestrator.tasks"
+
+celery_app.conf.timezone = "Asia/Kolkata"
+celery_app.conf.beat_schedule = {
+    # NSE/BSE opens 9:15 AM IST — run analysis 5 min after open
+    "daily-watchlist-analysis": {
+        "task": "scheduled.daily_watchlist_analysis",
+        "schedule": crontab(hour=9, minute=20, day_of_week="1-5"),
+    },
+    # NSE/BSE closes 3:30 PM IST — log P&L 5 min after close
+    "end-of-day-pnl-log": {
+        "task": "scheduled.end_of_day_pnl_log",
+        "schedule": crontab(hour=15, minute=35, day_of_week="1-5"),
+    },
+    # Watchdog: check for stuck agent tasks every 5 minutes
+    "check-orchestrator-health": {
+        "task": "workers.check_orchestrator_health",
+        "schedule": crontab(minute="*/5"),
+    },
+}

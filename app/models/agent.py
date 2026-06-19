@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Column, Date, Index, Integer, Numeric, String, Text
+from sqlalchemy import BigInteger, Column, Date, Index, Integer, Numeric, String, Text, TIMESTAMP
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP as PGTIMESTAMP, UUID
 from sqlalchemy.sql import func
 
@@ -63,4 +63,13 @@ class FilingChunk(Base):
     chunk_index = Column(Integer)
     chunk_text = Column(Text, nullable=False)
     embedding = _embedding_col()
+    created_at = Column(PGTIMESTAMP(timezone=True), server_default=func.now())
+
+
+class Alert(Base):
+    __tablename__ = "alerts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    alert_type = Column(String(64))
+    message = Column(Text)
     created_at = Column(PGTIMESTAMP(timezone=True), server_default=func.now())

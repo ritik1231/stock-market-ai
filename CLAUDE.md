@@ -1,6 +1,8 @@
 # Stock Market AI — Claude Code Guide
 
-Agentic, multi-agent AI system: ingests market data + news + SEC filings, generates trading signals, executes paper trades via Alpaca. Educational/research only — no real-money trading.
+Agentic, multi-agent AI system targeting **Indian equity markets (NSE/BSE)**. Ingests market data + news + filings, generates trading signals, executes paper trades via Alpaca. Educational/research only — no real-money trading.
+
+**Market hours:** NSE/BSE 9:15 AM – 3:30 PM IST, Monday–Friday. Celery Beat runs in `Asia/Kolkata` timezone.
 
 ## Stack
 
@@ -56,12 +58,12 @@ SYSTEM_DESIGN.md       # Architecture, DB schema, API contracts
 
 - **Phase 0** ✅ — Scaffold: FastAPI, Docker Compose, config, Celery, Alembic
 - **Phase 1** ✅ — Data layer: DB models + migration, price fetcher, news fetcher, EDGAR fetcher, Redis cache utils
-- **Phase 2** — Tool library: indicators, Groq LLM wrapper, embedder, RAG retrieval
-- **Phase 3** — Agents: Research, Quant, Risk, Execution (Celery tasks)
-- **Phase 4** — LangGraph orchestrator
-- **Phase 5** — API routes
-- **Phase 6** — Paper trading loop + Celery Beat scheduler
-- **Phase 7** — Observability, retry logic, rate limiting, DLQ consumer
+- **Phase 2** ✅ — Tool library: indicators, Groq LLM wrapper, embedder, RAG retrieval
+- **Phase 3** ✅ — Agents: Research, Quant, Risk, Execution (Celery tasks)
+- **Phase 4** ✅ — LangGraph orchestrator: state graph, node implementations, Celery task, tests
+- **Phase 5** ✅ — API routes: schemas, /analyze, /analysis, /signal, /portfolio, /trade, /trades, middleware
+- **Phase 6** ✅ — Paper trading loop: alpaca client (cancel/close), portfolio tracker, Celery Beat schedule, integration tests
+- **Phase 7** ✅ — Observability: structlog, tenacity retries, audit trail, rate limiter, DLQ consumer, alerts table, watchdog
 - **Phase 8** — React frontend (optional)
 
 Always check PHASES.md for exact task specs before implementing any phase task.
@@ -103,6 +105,7 @@ pytest tests/ -v
 
 ## Key Design Decisions
 
+- **Orchestrator** (`app/agents/orchestrator.py`) — `compiled_graph` is a module-level LangGraph `StateGraph`; `run_orchestrator` is the Celery task. Fan-out: START → research + quant (parallel); join → risk → conditional → execution or synthesize → END. Result cached in Redis at `result:{query_id}`.
 - **Agents never talk to each other directly** — all coordination through LangGraph orchestrator state
 - **Redis cache is fail-open** — if Redis is down, cache misses and rate limit checks pass through silently
 - **News dedup** uses `news:seen:{md5(url)}` Redis key (7-day TTL) to avoid re-inserting articles

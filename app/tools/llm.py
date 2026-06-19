@@ -1,12 +1,20 @@
-import asyncio
 import json
 import logging
 
+import structlog
 from groq import AsyncGroq, RateLimitError
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from app.config import get_settings
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
+_stdlib_logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # Accumulated token usage across all calls in this process
@@ -50,6 +58,13 @@ def _strip_markdown(text: str) -> str:
     return s
 
 
+@retry(
+    retry=retry_if_exception_type(RateLimitError),
+    wait=wait_exponential(multiplier=1, min=1, max=16),
+    stop=stop_after_attempt(4),
+    before_sleep=before_sleep_log(_stdlib_logger, logging.WARNING),
+    reraise=True,
+)
 async def groq_complete(
     system_prompt: str,
     user_prompt: str,
@@ -57,39 +72,20 @@ async def groq_complete(
     max_tokens: int = 1024,
     temperature: float = 0.1,
 ) -> str:
-    """Call Groq chat completion with up to 3 retries on RateLimitError (1s / 2s / 4s backoff)."""
+    """Call Groq chat completion. Retries up to 4× on RateLimitError (exp. backoff 1–16s)."""
     client = _get_client()
-    _retry_delays = [1, 2, 4]
-    last_exc: Exception | None = None
-
-    for attempt in range(len(_retry_delays) + 1):
-        try:
-            response = await client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
-            _update_usage(response.usage)
-            logger.debug(
-                "groq_complete ok: model=%s tokens=%s",
-                model,
-                getattr(response.usage, "total_tokens", "?"),
-            )
-            return response.choices[0].message.content or ""
-        except RateLimitError as exc:
-            last_exc = exc
-            if attempt < len(_retry_delays):
-                delay = _retry_delays[attempt]
-                logger.warning(
-                    "Groq rate limited (attempt %d/4), retrying in %ds", attempt + 1, delay
-                )
-                await asyncio.sleep(delay)
-
-    raise last_exc  # type: ignore[misc]
+    response = await client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        max_tokens=max_tokens,
+        temperature=temperature,
+    )
+    _update_usage(response.usage)
+    logger.debug("groq_complete", model=model, total_tokens=getattr(response.usage, "total_tokens", "?"))
+    return response.choices[0].message.content or ""
 
 
 async def groq_sentiment(text: str, ticker: str) -> dict:

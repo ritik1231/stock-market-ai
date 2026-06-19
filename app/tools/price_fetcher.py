@@ -8,6 +8,7 @@ import redis.asyncio as aioredis
 import yfinance as yf
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.config import get_settings
 from app.models.market import PriceSnapshot
@@ -28,6 +29,12 @@ def _cache_ttl(interval: str) -> int:
     return _TTL_INTRADAY if interval in _INTRADAY_INTERVALS else _TTL_DAILY
 
 
+@retry(
+    retry=retry_if_exception_type((ConnectionError, OSError, TimeoutError)),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    stop=stop_after_attempt(3),
+    reraise=True,
+)
 def _fetch_yfinance(ticker: str, interval: str, period: str) -> pd.DataFrame:
     raw = yf.Ticker(ticker).history(period=period, interval=interval)
     raw = raw.reset_index()

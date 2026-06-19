@@ -3,6 +3,8 @@ import logging
 from typing import Optional
 from uuid import UUID
 
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -13,6 +15,10 @@ _HWM_TTL = 365 * 24 * 3600  # 1 year — effectively permanent
 
 class AlpacaAPIError(Exception):
     pass
+
+
+class AlpacaServerError(AlpacaAPIError):
+    """5xx / transient server errors from Alpaca — safe to retry."""
 
 
 def _make_client():
@@ -69,6 +75,12 @@ async def get_positions() -> list[dict]:
         raise AlpacaAPIError(f"get_positions failed: {exc}") from exc
 
 
+@retry(
+    retry=retry_if_exception_type(AlpacaServerError),
+    wait=wait_exponential(multiplier=1, min=2, max=30),
+    stop=stop_after_attempt(3),
+    reraise=True,
+)
 async def place_order(
     ticker: str,
     action: str,
@@ -112,6 +124,9 @@ async def place_order(
     except AlpacaAPIError:
         raise
     except Exception as exc:
+        exc_str = str(exc)
+        if any(code in exc_str for code in ("500", "502", "503", "504", "server_error")):
+            raise AlpacaServerError(f"place_order server error (retryable): {exc}") from exc
         raise AlpacaAPIError(f"place_order failed: {exc}") from exc
 
 
@@ -135,3 +150,36 @@ async def get_order(order_id: str) -> dict:
         raise
     except Exception as exc:
         raise AlpacaAPIError(f"get_order failed: {exc}") from exc
+
+
+async def cancel_order(order_id: str) -> bool:
+    def _call() -> bool:
+        client = _make_client()
+        try:
+            client.cancel_order_by_id(UUID(order_id))
+            return True
+        except Exception:
+            return False
+
+    try:
+        return await asyncio.to_thread(_call)
+    except Exception:
+        return False
+
+
+async def close_position(ticker: str) -> dict:
+    def _call() -> dict:
+        client = _make_client()
+        result = client.close_position(ticker.upper())
+        return {
+            "order_id": str(result.id) if result.id else None,
+            "status": str(result.status.value) if result.status else "unknown",
+            "symbol": result.symbol,
+        }
+
+    try:
+        return await asyncio.to_thread(_call)
+    except AlpacaAPIError:
+        raise
+    except Exception as exc:
+        raise AlpacaAPIError(f"close_position failed: {exc}") from exc

@@ -1,18 +1,19 @@
 import asyncio
-import logging
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
+import structlog
 from pydantic import BaseModel
 
 from app.celery_app import celery_app
 from app.db import AsyncSessionLocal
+from app.logging_config import log_agent_task
 from app.models.agent import AgentRunLog
 from app.tools.indicators import calculate_indicators, interpret_indicators
 from app.tools.price_fetcher import fetch_ohlcv
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class QuantInput(BaseModel):
@@ -172,7 +173,11 @@ async def _execute(input_data: QuantInput, payload: dict) -> dict:
     return output_dict
 
 
-@celery_app.task(bind=True, queue="agent.quant", name="agents.quant")
+@celery_app.task(bind=True, queue="agent.quant", name="agents.quant", max_retries=3, default_retry_delay=10)
+@log_agent_task
 def run_quant_agent(self, payload: dict) -> dict:
-    input_data = QuantInput(**payload)
-    return asyncio.run(_execute(input_data, payload))
+    try:
+        input_data = QuantInput(**payload)
+        return asyncio.run(_execute(input_data, payload))
+    except Exception as exc:
+        raise self.retry(exc=exc, countdown=10)
