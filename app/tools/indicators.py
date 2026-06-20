@@ -92,6 +92,21 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
     # Internal helper: current close for bb_position
     result["_close"] = _last(close)
 
+    # India-specific: circuit limits (±20% from last close)
+    last_close = _last(close)
+    if last_close is not None:
+        upper = round(last_close * 1.20, 2)
+        lower = round(last_close * 0.80, 2)
+        result["circuit_upper"] = upper
+        result["circuit_lower"] = lower
+        result["near_upper_circuit"] = bool(last_close > upper * 0.97)
+        result["near_lower_circuit"] = bool(last_close < lower * 1.03)
+    else:
+        result["circuit_upper"] = None
+        result["circuit_lower"] = None
+        result["near_upper_circuit"] = False
+        result["near_lower_circuit"] = False
+
     return result
 
 
@@ -161,5 +176,13 @@ def interpret_indicators(indicators: dict) -> dict:
             result["rsi_zone"] = "neutral"
     else:
         result["rsi_zone"] = "neutral"
+
+    # India-specific: circuit alert
+    if indicators.get("near_upper_circuit"):
+        result["circuit_alert"] = "NEAR_UPPER"
+    elif indicators.get("near_lower_circuit"):
+        result["circuit_alert"] = "NEAR_LOWER"
+    else:
+        result["circuit_alert"] = "NONE"
 
     return result

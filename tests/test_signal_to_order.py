@@ -3,7 +3,7 @@
 Requires:
   - Docker Compose stack running (postgres, redis, rabbitmq)
   - Celery worker and beat running
-  - Real Alpaca paper credentials in .env
+  - Angel One SmartAPI credentials in .env
   - uvicorn server running at http://localhost:8000
 
 Run with:
@@ -26,12 +26,12 @@ POLL_TIMEOUT_S = 60
 def test_signal_to_order_pipeline():
     with httpx.Client(base_url=BASE_URL, timeout=30) as client:
         # Step 1: Trigger analysis
-        resp = client.post("/analyze", json={"ticker": "AAPL", "mode": "full_analysis"})
+        resp = client.post("/analyze", json={"ticker": "TCS.NS", "mode": "full_analysis"})
         assert resp.status_code == 202, f"Expected 202, got {resp.status_code}: {resp.text}"
         body = resp.json()
         query_id = body["query_id"]
         assert query_id
-        assert body["ticker"] == "AAPL"
+        assert body["ticker"] == "TCS.NS"
 
         # Step 2: Poll until complete or timeout
         result = None
@@ -52,18 +52,18 @@ def test_signal_to_order_pipeline():
         if result["final_signal"] == "BUY":
             trade_resp = client.post(
                 "/trade",
-                json={"ticker": "AAPL", "action": "BUY", "qty": 1},
+                json={"ticker": "TCS.NS", "action": "BUY", "qty": 1},
             )
             assert trade_resp.status_code == 200, (
                 f"Trade failed: {trade_resp.status_code} {trade_resp.text}"
             )
             trade = trade_resp.json()
             assert trade["status"] in (
-                "accepted", "filled", "pending_new", "new", "partially_filled"
+                "accepted", "filled", "pending", "canceled", "rejected"
             ), f"Unexpected order status: {trade['status']}"
 
             # Step 4: Verify trade is recorded
-            trades_resp = client.get("/trades?ticker=AAPL&limit=5")
+            trades_resp = client.get("/trades?ticker=TCS.NS&limit=5")
             assert trades_resp.status_code == 200
             trades = trades_resp.json()
             assert len(trades) > 0, "Trade should be recorded in the trades table"
@@ -74,6 +74,7 @@ def test_signal_to_order_pipeline():
             portfolio = portfolio_resp.json()
             assert "positions" in portfolio
             assert "portfolio_value" in portfolio
+            assert portfolio.get("currency") == "INR"
 
 
 @pytest.mark.integration
@@ -102,3 +103,17 @@ def test_signal_not_found_returns_404():
     with httpx.Client(base_url=BASE_URL, timeout=10) as client:
         resp = client.get("/signal/ZZZZZ")
         assert resp.status_code == 404
+
+
+@pytest.mark.integration
+def test_tax_summary_endpoint():
+    """Smoke test for the tax summary endpoint."""
+    with httpx.Client(base_url=BASE_URL, timeout=10) as client:
+        resp = client.get("/tax/summary?year=2025")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "financial_year" in body
+        assert body["financial_year"] == "2025-2026"
+        assert "ltcg" in body
+        assert "stcg" in body
+        assert "total_tax_liability" in body

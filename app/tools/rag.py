@@ -74,10 +74,13 @@ async def rag_answer(ticker: str, query: str, db: AsyncSession) -> dict:
     results = await retrieve_context(ticker, query, db)
     context = format_context_for_prompt(results)
 
+    from app.tools.llm import _INDIA_CONTEXT
+
     system_prompt = (
-        "You are a financial analyst with access to SEC filings and news articles. "
+        "You are a financial analyst with access to BSE/NSE filings and Indian market news. "
         "Answer the question using only the provided context. "
-        "Be concise and cite the source type (filing/news) when relevant."
+        "Be concise and cite the source type (filing/news) when relevant. "
+        + _INDIA_CONTEXT
     )
     user_prompt = f"Question: {query}\n\n{context}"
 

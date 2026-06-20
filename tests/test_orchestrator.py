@@ -6,19 +6,19 @@ _QUERY_ID = "00000000-0000-0000-0000-000000000001"
 
 MOCK_RESEARCH = {
     "query_id": _QUERY_ID,
-    "ticker": "AAPL",
+    "ticker": "TCS.NS",
     "sentiment_score": 0.7,
     "sentiment_label": "BULLISH",
     "sentiment_reasoning": "Positive earnings coverage",
-    "rag_answer": "Strong iPhone growth expected",
+    "rag_answer": "Strong TCS IT growth expected",
     "rag_sources": [],
-    "summary": "AAPL fundamentals look solid",
+    "summary": "TCS.NS fundamentals look solid",
     "article_count": 5,
 }
 
 MOCK_QUANT_BUY = {
     "query_id": _QUERY_ID,
-    "ticker": "AAPL",
+    "ticker": "TCS.NS",
     "interval": "1d",
     "period": "6mo",
     "indicators": {"macd_signal_label": "bullish_crossover", "rsi_zone": "neutral"},
@@ -29,7 +29,7 @@ MOCK_QUANT_BUY = {
 
 MOCK_RISK_PASS = {
     "query_id": _QUERY_ID,
-    "ticker": "AAPL",
+    "ticker": "TCS.NS",
     "decision": "PASS",
     "reason": "All guardrails passed",
     "suggested_qty": 2,
@@ -39,7 +39,7 @@ MOCK_RISK_PASS = {
 
 MOCK_RISK_BLOCK = {
     "query_id": _QUERY_ID,
-    "ticker": "AAPL",
+    "ticker": "TCS.NS",
     "decision": "BLOCK",
     "reason": "Confidence below threshold",
     "suggested_qty": 0,
@@ -49,7 +49,7 @@ MOCK_RISK_BLOCK = {
 
 MOCK_EXECUTION = {
     "query_id": _QUERY_ID,
-    "ticker": "AAPL",
+    "ticker": "TCS.NS",
     "order_id": "abc-order-123",
     "status": "accepted",
     "filled_price": None,
@@ -88,7 +88,7 @@ def _db_mock() -> tuple[MagicMock, AsyncMock]:
 
 def test_route_blocks_on_block_decision():
     state: OrchestratorState = {
-        "query_id": "q1", "ticker": "AAPL", "query_text": "",
+        "query_id": "q1", "ticker": "TCS.NS", "query_text": "",
         "mode": "full_analysis",
         "research_result": None, "quant_result": None,
         "risk_result": {"decision": "BLOCK", "suggested_qty": 0, "reason": "test"},
@@ -100,7 +100,7 @@ def test_route_blocks_on_block_decision():
 
 def test_route_skips_execution_in_signal_only_mode():
     state: OrchestratorState = {
-        "query_id": "q1", "ticker": "AAPL", "query_text": "",
+        "query_id": "q1", "ticker": "TCS.NS", "query_text": "",
         "mode": "signal_only",
         "research_result": None, "quant_result": None,
         "risk_result": {"decision": "PASS", "suggested_qty": 5, "reason": "ok"},
@@ -112,7 +112,7 @@ def test_route_skips_execution_in_signal_only_mode():
 
 def test_route_skips_execution_when_qty_zero():
     state: OrchestratorState = {
-        "query_id": "q1", "ticker": "AAPL", "query_text": "",
+        "query_id": "q1", "ticker": "TCS.NS", "query_text": "",
         "mode": "full_analysis",
         "research_result": None, "quant_result": None,
         "risk_result": {"decision": "PASS", "suggested_qty": 0, "reason": "too small"},
@@ -124,7 +124,7 @@ def test_route_skips_execution_when_qty_zero():
 
 def test_route_proceeds_to_execution_when_pass_with_qty():
     state: OrchestratorState = {
-        "query_id": "q1", "ticker": "AAPL", "query_text": "",
+        "query_id": "q1", "ticker": "TCS.NS", "query_text": "",
         "mode": "full_analysis",
         "research_result": None, "quant_result": None,
         "risk_result": {"decision": "PASS", "suggested_qty": 2, "reason": "ok"},
@@ -161,8 +161,8 @@ def test_graph_pass_risk_routes_through_execution(
 
     initial_state: OrchestratorState = {
         "query_id": _QUERY_ID,
-        "ticker": "AAPL",
-        "query_text": "Analyze AAPL",
+        "ticker": "TCS.NS",
+        "query_text": "Analyze TCS.NS",
         "mode": "full_analysis",
         "research_result": None, "quant_result": None,
         "risk_result": None, "execution_result": None,
@@ -207,8 +207,8 @@ def test_graph_block_risk_skips_execution(
 
     initial_state: OrchestratorState = {
         "query_id": _QUERY_ID,
-        "ticker": "AAPL",
-        "query_text": "Analyze AAPL",
+        "ticker": "TCS.NS",
+        "query_text": "Analyze TCS.NS",
         "mode": "full_analysis",
         "research_result": None, "quant_result": None,
         "risk_result": None, "execution_result": None,

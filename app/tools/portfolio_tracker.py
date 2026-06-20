@@ -8,7 +8,7 @@ from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import AgentRunLog
-from app.tools import alpaca_client
+from app.tools import broker
 from app.tools.cache import get_cache, set_cache
 
 logger = logging.getLogger(__name__)
@@ -29,8 +29,8 @@ class PortfolioSnapshot:
 
 async def get_portfolio_snapshot() -> PortfolioSnapshot:
     account, positions = await asyncio.gather(
-        alpaca_client.get_account(),
-        alpaca_client.get_positions(),
+        broker.get_account(),
+        broker.get_positions(),
     )
     daily_pnl = sum(p.get("unrealized_pnl", 0.0) for p in positions)
     return PortfolioSnapshot(

@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Boolean, Column, Index, Integer, Numeric, String, Text
+from sqlalchemy import BigInteger, Boolean, Column, Date, Index, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import TIMESTAMP as PGTIMESTAMP, UUID
 from sqlalchemy.sql import func
 
@@ -13,8 +13,8 @@ class Trade(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     query_id = Column(UUID(as_uuid=True))
-    alpaca_order_id = Column(Text, unique=True)
-    ticker = Column(String(10), nullable=False)
+    broker_order_id = Column(Text, unique=True)
+    ticker = Column(String(20), nullable=False)
     action = Column(String(8), nullable=False)
     qty = Column(Integer, nullable=False)
     submitted_price = Column(Numeric(12, 4))
@@ -23,5 +23,6 @@ class Trade(Base):
     take_profit = Column(Numeric(12, 4))
     status = Column(String(16))
     paper_mode = Column(Boolean, default=True)
+    buy_date = Column(Date)
     submitted_at = Column(PGTIMESTAMP(timezone=True), server_default=func.now())
     filled_at = Column(PGTIMESTAMP(timezone=True))

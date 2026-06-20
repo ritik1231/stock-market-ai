@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import uuid
+from datetime import date
 
 from sqlalchemy import select
 
@@ -8,6 +9,7 @@ from app.agents.orchestrator import run_orchestrator
 from app.celery_app import celery_app
 from app.db import AsyncSessionLocal
 from app.models.market import StocksWatchlist
+from app.tools.market_calendar import is_trading_day
 from app.tools.portfolio_tracker import log_daily_pnl
 
 logger = logging.getLogger(__name__)
@@ -15,6 +17,9 @@ logger = logging.getLogger(__name__)
 
 @celery_app.task(name="scheduled.daily_watchlist_analysis")
 def daily_watchlist_analysis():
+    if not is_trading_day(date.today()):
+        logger.info("daily_watchlist_analysis skipped — market holiday or weekend")
+        return
     asyncio.run(_daily_watchlist_analysis_async())
 
 

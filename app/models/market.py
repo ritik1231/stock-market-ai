@@ -9,7 +9,7 @@ class StocksWatchlist(Base):
     __tablename__ = "stocks_watchlist"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    ticker = Column(String(10), nullable=False, unique=True)
+    ticker = Column(String(20), nullable=False, unique=True)
     company = Column(Text)
     sector = Column(Text)
     is_active = Column(Boolean, default=True)
@@ -42,7 +42,7 @@ class NewsArticle(Base):
     )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    ticker = Column(String(10))
+    ticker = Column(String(20))
     headline = Column(Text, nullable=False)
     source = Column(String(128))
     url = Column(Text, unique=True)

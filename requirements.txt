@@ -27,6 +27,7 @@ feedparser>=6.0.11
 httpx>=0.27.0
 beautifulsoup4>=4.12.3
 lxml>=5.2.2
+pdfminer.six>=20221105
 
 # AI / ML
 groq>=0.9.0
@@ -34,7 +35,9 @@ sentence-transformers>=3.0.0
 langgraph>=0.2.0
 
 # Broker / trading
-alpaca-py>=0.20.0
+# Default: paper_broker (no extra deps — uses yfinance + postgres)
+# BROKER=upstox: no extra deps (uses httpx, already installed)
+# BROKER=angel:  pip install smartapi-python>=1.3.0 pyotp>=2.9.0  (requires Demat account)
 
 # Observability
 structlog>=24.2.0

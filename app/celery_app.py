@@ -20,6 +20,15 @@ celery_app.conf.update(
     task_acks_late=True,
     worker_prefetch_multiplier=1,
     result_expires=3600,
+    include=[
+        "app.agents.orchestrator",
+        "app.agents.research_agent",
+        "app.agents.quant_agent",
+        "app.agents.risk_agent",
+        "app.agents.execution_agent",
+        "app.agents.scheduled_tasks",
+        "app.workers.dlq_consumer",
+    ],
 )
 
 _dead_letter_args = {

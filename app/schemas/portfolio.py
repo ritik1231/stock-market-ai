@@ -20,3 +20,4 @@ class PortfolioResponse(BaseModel):
     portfolio_value: float
     cash: float
     positions: list[PositionSchema]
+    currency: str = "INR"

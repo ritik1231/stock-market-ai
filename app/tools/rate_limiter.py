@@ -5,7 +5,9 @@ RATE_LIMITS: dict[str, dict] = {
     "newsapi":  {"max_calls": 90,   "window_seconds": 3600},
     "edgar":    {"max_calls": 9,    "window_seconds": 1},
     "groq":     {"max_calls": 30,   "window_seconds": 60},
-    "alpaca":   {"max_calls": 190,  "window_seconds": 60},
+    "angel":    {"max_calls": 180,  "window_seconds": 60},
+    "nse":      {"max_calls": 30,   "window_seconds": 60},
+    "bse":      {"max_calls": 5,    "window_seconds": 60},
     "yfinance": {"max_calls": 1900, "window_seconds": 3600},
 }
 

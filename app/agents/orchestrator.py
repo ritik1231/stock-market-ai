@@ -37,13 +37,18 @@ class OrchestratorState(TypedDict):
 # Node functions
 # ---------------------------------------------------------------------------
 
+def _get(async_result, timeout):
+    """Call .get() on a Celery AsyncResult from inside a task safely."""
+    return async_result.get(timeout=timeout, disable_sync_subtasks=False)
+
+
 def research_node(state: OrchestratorState) -> dict:
     payload = ResearchInput(
         query_id=state["query_id"],
         ticker=state["ticker"],
     ).model_dump()
     try:
-        result = run_research_agent.apply_async(args=[payload], queue="agent.research").get(timeout=120)
+        result = _get(run_research_agent.apply_async(args=[payload], queue="agent.research"), 120)
     except Exception as exc:
         logger.error("research_node failed for %s: %s", state["ticker"], exc)
         result = {"error": str(exc)}
@@ -56,7 +61,7 @@ def quant_node(state: OrchestratorState) -> dict:
         ticker=state["ticker"],
     ).model_dump()
     try:
-        result = run_quant_agent.apply_async(args=[payload], queue="agent.quant").get(timeout=120)
+        result = _get(run_quant_agent.apply_async(args=[payload], queue="agent.quant"), 120)
     except Exception as exc:
         logger.error("quant_node failed for %s: %s", state["ticker"], exc)
         result = {"error": str(exc)}
@@ -67,7 +72,6 @@ def risk_node(state: OrchestratorState) -> dict:
     research = state.get("research_result") or {}
     quant = state.get("quant_result") or {}
 
-    # Derive confidence proxy from sentiment score (clamped to [0, 1])
     try:
         confidence = min(max(float(research.get("sentiment_score", 0.7)), 0.0), 1.0)
     except (TypeError, ValueError):
@@ -83,7 +87,7 @@ def risk_node(state: OrchestratorState) -> dict:
     ).model_dump()
 
     try:
-        result = run_risk_agent.apply_async(args=[payload], queue="agent.risk").get(timeout=60)
+        result = _get(run_risk_agent.apply_async(args=[payload], queue="agent.risk"), 60)
     except Exception as exc:
         logger.error("risk_node failed for %s: %s", state["ticker"], exc)
         result = {"decision": "BLOCK", "reason": str(exc), "suggested_qty": 0,
@@ -106,7 +110,7 @@ def execution_node(state: OrchestratorState) -> dict:
     ).model_dump()
 
     try:
-        result = run_execution_agent.apply_async(args=[payload], queue="agent.execution").get(timeout=60)
+        result = _get(run_execution_agent.apply_async(args=[payload], queue="agent.execution"), 60)
     except Exception as exc:
         logger.error("execution_node failed for %s: %s", state["ticker"], exc)
         result = {"error": str(exc)}
@@ -118,7 +122,16 @@ def synthesize_node(state: OrchestratorState) -> dict:
     quant = state.get("quant_result") or {}
     risk = state.get("risk_result") or {}
 
-    synthesis = asyncio.run(_synthesize_and_persist(state, research, quant, risk))
+    # asyncio.run() creates a new event loop but asyncpg pool connections are
+    # bound to the forked parent's loop. Use a fresh loop and dispose the pool
+    # first so new connections are created in the correct loop.
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        synthesis = loop.run_until_complete(_synthesize_and_persist(state, research, quant, risk))
+    finally:
+        loop.close()
+        asyncio.set_event_loop(None)
     return {
         "final_signal": synthesis.get("signal", "HOLD"),
         "confidence": synthesis.get("confidence", 0.0),
@@ -132,6 +145,8 @@ async def _synthesize_and_persist(
     quant: dict,
     risk: dict,
 ) -> dict:
+    from app.db import engine as async_engine
+
     synthesis = await groq_synthesize_signal(research, quant, risk)
 
     signal_row = Signal(
@@ -151,6 +166,9 @@ async def _synthesize_and_persist(
             "execution": state.get("execution_result"),
         },
     )
+    # Dispose stale pool connections from the forked parent process so that
+    # new connections are created bound to the current event loop.
+    await async_engine.dispose()
     async with AsyncSessionLocal() as db:
         db.add(signal_row)
         await db.commit()

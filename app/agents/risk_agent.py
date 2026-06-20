@@ -45,6 +45,9 @@ class RiskOutput(BaseModel):
 
 
 async def _run_risk(input_data: RiskInput) -> RiskOutput:
+    from app.db import engine as _engine
+    await _engine.dispose()
+
     ticker = input_data.ticker.upper()
     atr = input_data.atr_14
     price = input_data.current_price

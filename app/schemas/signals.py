@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -17,4 +17,5 @@ class SignalResponse(BaseModel):
     sentiment_score: Optional[float] = None
     risk_decision: Optional[str] = None
     summary: Optional[str] = None
+    raw_output: Optional[dict[str, Any]] = None
     generated_at: datetime

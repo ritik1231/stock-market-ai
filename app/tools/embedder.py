@@ -1,6 +1,7 @@
 import hashlib
 import logging
 from datetime import date
+from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +18,7 @@ def _get_model():
     global _model
     if _model is None:
         from sentence_transformers import SentenceTransformer
-        _model = SentenceTransformer(_MODEL_NAME)
+        _model = SentenceTransformer(_MODEL_NAME, device="cpu")
     return _model
 
 
@@ -134,3 +135,32 @@ async def ingest_news_for_rag(article: dict, db: AsyncSession) -> int:
         text=text,
         db=db,
     )
+
+
+async def ingest_bse_announcements(ticker: str, db: AsyncSession, max_results: int = 5) -> int:
+    """Fetch BSE/NSE filings for ticker and ingest into filing_chunks for RAG retrieval."""
+    from app.tools.bse_nse_fetcher import fetch_bse_announcements, fetch_filing_pdf
+
+    announcements = await fetch_bse_announcements(ticker, max_results=max_results)
+    total = 0
+    for ann in announcements:
+        doc_url = ann.get("document_url", "")
+        if not doc_url:
+            continue
+        text = await fetch_filing_pdf(doc_url)
+        if not text:
+            continue
+        filing_date = str(ann.get("filing_date", ""))[:10]
+        accession_no = hashlib.md5(doc_url.encode()).hexdigest()[:32]
+        count = await ingest_filing(
+            ticker=ticker,
+            filing_type=ann.get("filing_type", "announcement"),
+            filing_date=filing_date,
+            accession_no=accession_no,
+            text=text,
+            db=db,
+        )
+        total += count
+
+    logger.info("ingest_bse_announcements ticker=%s chunks=%d", ticker, total)
+    return total

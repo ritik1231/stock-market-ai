@@ -9,7 +9,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.models.trading import Trade
 from app.schemas.trades import TradeRecord, TradeRequest, TradeResponse
-from app.tools.alpaca_client import AlpacaAPIError
+from app.tools.broker_errors import BrokerAPIError
 
 router = APIRouter(tags=["trades"])
 settings = get_settings()
@@ -37,7 +37,7 @@ async def place_trade(body: TradeRequest):
         result = run_execution_agent.apply_async(args=[payload], queue="agent.execution").get(timeout=30)
     except LiveTradingNotPermittedError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
-    except AlpacaAPIError as exc:
+    except BrokerAPIError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

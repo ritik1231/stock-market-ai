@@ -17,8 +17,8 @@ class TradeRequest(BaseModel):
     @classmethod
     def ticker_uppercase(cls, v: str) -> str:
         v = v.upper().strip()
-        if not re.match(r"^[A-Z0-9]{1,10}$", v):
-            raise ValueError("ticker must be 1–10 uppercase alphanumeric characters")
+        if not re.match(r"^[A-Z0-9.\-\^&]{1,20}$", v):
+            raise ValueError("ticker must be 1–20 uppercase alphanumeric characters (dots/hyphens allowed for NSE/BSE)")
         return v
 
     @field_validator("action")
@@ -54,7 +54,7 @@ class TradeRecord(BaseModel):
 
     id: int
     query_id: Optional[UUID] = None
-    alpaca_order_id: Optional[str] = None
+    broker_order_id: Optional[str] = None
     ticker: str
     action: str
     qty: int

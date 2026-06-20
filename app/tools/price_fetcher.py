@@ -17,6 +17,15 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 _INTRADAY_INTERVALS = {"1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h"}
+
+
+def normalise_ticker(ticker: str) -> str:
+    """Append .NS if no exchange suffix is present."""
+    if "." not in ticker:
+        return ticker + ".NS"
+    return ticker
+
+
 _TTL_INTRADAY = 5 * 60       # 5 minutes
 _TTL_DAILY = 24 * 60 * 60    # 24 hours
 
@@ -46,6 +55,7 @@ def _fetch_yfinance(ticker: str, interval: str, period: str) -> pd.DataFrame:
 
 
 async def fetch_ohlcv(ticker: str, interval: str = "1d", period: str = "6mo") -> pd.DataFrame:
+    ticker = normalise_ticker(ticker)
     cache_key = f"ohlcv:{ticker.upper()}:{interval}"
     ttl = _cache_ttl(interval)
 
@@ -77,6 +87,7 @@ async def get_latest_price(ticker: str) -> float:
 
 
 async def save_price_snapshot(ticker: str, df: pd.DataFrame, db: AsyncSession) -> None:
+    ticker = normalise_ticker(ticker)
     if df.empty:
         return
 

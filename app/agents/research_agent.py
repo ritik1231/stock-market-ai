@@ -12,7 +12,7 @@ from app.db import AsyncSessionLocal
 from app.logging_config import log_agent_task
 from app.models.agent import AgentRunLog
 from app.tools.llm import groq_sentiment, groq_summarize
-from app.tools.news_fetcher import fetch_news_newsapi, fetch_news_rss
+from app.tools.news_fetcher import fetch_news_india
 from app.tools.rag import format_context_for_prompt, rag_answer
 
 logger = structlog.get_logger(__name__)
@@ -37,21 +37,13 @@ class ResearchOutput(BaseModel):
 
 
 async def _run_research(input_data: ResearchInput) -> ResearchOutput:
+    from app.db import engine as _engine
+    await _engine.dispose()
+
     ticker = input_data.ticker.upper()
 
-    # Step 1: Fetch news from both sources concurrently and deduplicate by URL
-    newsapi_articles, rss_articles = await asyncio.gather(
-        fetch_news_newsapi(ticker, input_data.lookback_days),
-        fetch_news_rss(ticker),
-    )
-
-    seen_urls: set[str] = set()
-    articles: list[dict] = []
-    for article in newsapi_articles + rss_articles:
-        url = article.get("url", "")
-        if url and url not in seen_urls:
-            seen_urls.add(url)
-            articles.append(article)
+    # Step 1: Fetch news (NSE/BSE India sources)
+    articles = await fetch_news_india(ticker)
 
     # Step 2: Build combined text from headlines + snippets (truncated to 4000 chars)
     parts = []

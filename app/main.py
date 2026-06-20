@@ -16,7 +16,7 @@ from app.api.routes import router as api_router
 from app.config import get_settings
 from app.db import engine
 from app.exceptions import RateLimitError
-from app.tools.alpaca_client import AlpacaAPIError
+from app.tools.broker_errors import BrokerAPIError
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -95,10 +95,10 @@ app.include_router(api_router)
 # Exception handlers
 # ---------------------------------------------------------------------------
 
-@app.exception_handler(AlpacaAPIError)
-async def alpaca_error_handler(request: Request, exc: AlpacaAPIError):
-    logger.warning("alpaca_error", detail=str(exc), path=request.url.path)
-    return JSONResponse(status_code=502, content={"error": "alpaca_error", "detail": str(exc)})
+@app.exception_handler(BrokerAPIError)
+async def broker_error_handler(request: Request, exc: BrokerAPIError):
+    logger.warning("broker_error", detail=str(exc), path=request.url.path)
+    return JSONResponse(status_code=502, content={"error": "broker_error", "detail": str(exc)})
 
 
 @app.exception_handler(RateLimitError)

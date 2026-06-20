@@ -17,17 +17,26 @@ class Settings(BaseSettings):
     # AI providers
     GROQ_API_KEY: str = ""
 
-    # Alpaca
-    ALPACA_API_KEY: str = ""
-    ALPACA_SECRET_KEY: str = ""
-    ALPACA_BASE_URL: str = "https://paper-api.alpaca.markets"
+    # Angel One SmartAPI
+    ANGEL_API_KEY: str = ""
+    ANGEL_CLIENT_ID: str = ""
+    ANGEL_PASSWORD: str = ""
+    ANGEL_TOTP_SECRET: str = ""
 
     # News
     NEWSAPI_KEY: str = ""
 
+    # Upstox broker (optional — needed only when BROKER=upstox)
+    UPSTOX_ACCESS_TOKEN: str = ""
+    UPSTOX_SANDBOX: bool = True
+
     # App behaviour
     PAPER_MODE: bool = True
+    BROKER: str = "paper"           # paper | upstox | angel
+    PAPER_STARTING_CASH: float = 1_000_000.0   # ₹10 lakh default
     LOG_LEVEL: str = "INFO"
+    DEFAULT_EXCHANGE: str = "NSE"
+    CURRENCY: str = "INR"
 
     # Celery
     CELERY_BROKER_URL: str = "amqp://guest:guest@localhost:5672/"

@@ -65,6 +65,9 @@ def _determine_signal(raw_indicators: dict, labeled: dict, current_price: Option
 
 
 async def _run_quant(input_data: QuantInput) -> QuantOutput:
+    from app.db import engine as _engine
+    await _engine.dispose()
+
     ticker = input_data.ticker.upper()
 
     # Step 1: Fetch OHLCV (Redis-cached inside fetch_ohlcv)

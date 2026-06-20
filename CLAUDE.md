@@ -64,7 +64,7 @@ SYSTEM_DESIGN.md       # Architecture, DB schema, API contracts
 - **Phase 5** ✅ — API routes: schemas, /analyze, /analysis, /signal, /portfolio, /trade, /trades, middleware
 - **Phase 6** ✅ — Paper trading loop: alpaca client (cancel/close), portfolio tracker, Celery Beat schedule, integration tests
 - **Phase 7** ✅ — Observability: structlog, tenacity retries, audit trail, rate limiter, DLQ consumer, alerts table, watchdog
-- **Phase 8** — React frontend (optional)
+- **Phase 8** ✅ — React frontend: Vite+React 18+TS, API client, WatchlistPanel, PortfolioPanel, AgentRunHistory, Docker Compose integration
 
 Always check PHASES.md for exact task specs before implementing any phase task.
 

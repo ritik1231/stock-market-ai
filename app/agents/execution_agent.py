@@ -134,6 +134,9 @@ async def _get_existing_trade(query_id: str) -> Optional[dict]:
 
 
 async def _run_execution(input_data: ExecutionInput) -> ExecutionOutput:
+    from app.db import engine as _engine
+    await _engine.dispose()
+
     # Step 1: Hard safety gate
     if not input_data.paper_mode:
         raise LiveTradingNotPermittedError(

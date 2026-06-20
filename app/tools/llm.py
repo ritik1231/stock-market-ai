@@ -26,6 +26,15 @@ _token_usage: dict[str, int] = {
 
 _client: AsyncGroq | None = None
 
+_INDIA_CONTEXT = (
+    "You are analysing Indian equities listed on NSE or BSE. All monetary values "
+    "are in Indian Rupees (INR, symbol ₹). Use Indian number formatting (lakhs and "
+    "crores). Regulatory context is SEBI, not SEC. Key benchmark indices are NIFTY 50, "
+    "SENSEX, Bank Nifty, and NIFTY IT. Key macro factors are RBI monetary policy, "
+    "FII/DII institutional flows, promoter holding patterns, and Union Budget impact. "
+    "Use Indian financial terminology throughout."
+)
+
 
 def _get_client() -> AsyncGroq:
     global _client
@@ -94,7 +103,8 @@ async def groq_sentiment(text: str, ticker: str) -> dict:
         "You are a financial sentiment analyzer. "
         "Analyze the sentiment of the provided news text about the given stock ticker. "
         "Respond ONLY with valid JSON and no markdown or explanation:\n"
-        '{"score": <float -1.0 to 1.0>, "label": "<BULLISH|BEARISH|NEUTRAL>", "reasoning": "<brief>"}'
+        '{"score": <float -1.0 to 1.0>, "label": "<BULLISH|BEARISH|NEUTRAL>", "reasoning": "<brief>"}\n\n'
+        + _INDIA_CONTEXT
     )
     user_prompt = f"Ticker: {ticker}\n\nNews:\n{text[:4000]}"
 
@@ -116,7 +126,8 @@ async def groq_summarize(text: str, context: str, max_words: int = 200) -> str:
     system_prompt = (
         f"You are a concise financial analyst. "
         f"Summarize the provided text and context in no more than {max_words} words. "
-        "Focus on key facts, risks, and opportunities."
+        "Focus on key facts, risks, and opportunities. "
+        + _INDIA_CONTEXT
     )
     user_prompt = f"Text:\n{text[:3000]}\n\nContext:\n{context[:1000]}"
     return await groq_complete(system_prompt, user_prompt, temperature=0.1, max_tokens=512)
@@ -132,7 +143,8 @@ async def groq_synthesize_signal(research: dict, quant: dict, risk: dict) -> dic
         "Given research, quantitative, and risk analysis for a stock, produce a final trading signal. "
         "Respond ONLY with valid JSON and no markdown:\n"
         '{"signal": "<BUY|SELL|HOLD>", "confidence": <float 0.0-1.0>, '
-        '"summary": "<2-3 sentence summary>", "key_factors": ["<factor1>", ...]}'
+        '"summary": "<2-3 sentence summary>", "key_factors": ["<factor1>", ...]}\n\n'
+        + _INDIA_CONTEXT
     )
     user_prompt = (
         f"Research Analysis:\n{json.dumps(research, default=str)}\n\n"
